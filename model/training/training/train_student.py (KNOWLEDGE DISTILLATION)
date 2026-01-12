@@ -1,0 +1,26 @@
+import torch
+import pandas as pd
+from model.neural_model import NeuralIDS
+
+T = 4.0  # temperature
+
+X_train = torch.tensor(pd.read_csv("X_train.csv").values).float()
+y_train = torch.tensor(pd.read_csv("y_train.csv").values).long()
+
+teacher = NeuralIDS(X_train.shape[1])
+teacher.load_state_dict(torch.load("teacher_model.pt"))
+teacher.eval()
+
+student = NeuralIDS(X_train.shape[1])
+optimizer = torch.optim.Adam(student.parameters(), lr=0.001)
+
+for epoch in range(15):
+    optimizer.zero_grad()
+    teacher_logits = teacher(X_train) / T
+    student_logits = student(X_train) / T
+    loss = torch.nn.KLDivLoss()(student_logits.log_softmax(dim=1),
+                               teacher_logits.softmax(dim=1))
+    loss.backward()
+    optimizer.step()
+
+torch.save(student.state_dict(), "student_model.pt")
